@@ -91,9 +91,6 @@ public:
     float64 Bx0   = b0 * cos(theta / 180 * nix::math::pi);
     float64 By0   = b0 * sin(theta / 180 * nix::math::pi) * cos(phi / 180 * nix::math::pi);
     float64 Bz0   = b0 * sin(theta / 180 * nix::math::pi) * sin(phi / 180 * nix::math::pi);
-    float64 Ex0   = 0;
-    float64 Ey0   = +u0 * Bz0 / (gamma * cc);
-    float64 Ez0   = -u0 * By0 / (gamma * cc);
 
     // particle ID
     int64 lastid = 0;
@@ -120,7 +117,7 @@ public:
             float64 bx = Bx0;
             float64 by = By0;
             float64 bz = Bz0;
-            float64 ex = Ex0;
+            float64 ex = 0.0;
             float64 ey = +Ux * bz / (gm * cc);
             float64 ez = -Ux * by / (gm * cc);
 
@@ -224,9 +221,6 @@ public:
                           {"u0", u0},
                           {"vte", vte},
                           {"vti", vti},
-                          {"Ex0", Ex0},
-                          {"Ey0", Ey0},
-                          {"Ez0", Ez0},
                           {"Bx0", Bx0},
                           {"By0", By0},
                           {"Bz0", Bz0},
@@ -237,20 +231,20 @@ public:
 
   void set_boundary_emf()
   {
-    const float64 delxy = delx / dely;
-    const float64 delxz = delx / delz;
+    const float64 delxy = delx / dely * has_dim[1];
+    const float64 delxz = delx / delz * has_dim[0];
     const int     Nb    = boundary_margin;
 
     //
     // lower boundary in x
     //
     if (get_nb_rank(0, 0, -1) == MPI_PROC_NULL) {
-      const float64 Ex0 = option["boundary"]["Ex0"].get<float64>();
-      const float64 Ey0 = option["boundary"]["Ey0"].get<float64>();
-      const float64 Ez0 = option["boundary"]["Ez0"].get<float64>();
-      const float64 Bx0 = option["boundary"]["Bx0"].get<float64>();
+      const float64 u0  = option["boundary"]["u0"].get<float64>();
+      const float64 v0  = +u0 / sqrt(1 + (u0 * u0) / (cc * cc));
       const float64 By0 = option["boundary"]["By0"].get<float64>();
       const float64 Bz0 = option["boundary"]["Bz0"].get<float64>();
+      const float64 Ey0 = +v0 * Bz0 / cc;
+      const float64 Ez0 = -v0 * By0 / cc;
 
       // transverse E: Ey, Ez
       for (int ix = 0; ix < 2 * Nb; ix++) {
@@ -258,8 +252,8 @@ public:
         int ix2 = Lbx + ix + Nb;
         for (int iz = Lbz - Nb; iz <= Ubz + Nb; iz++) {
           for (int iy = Lby - Nb; iy <= Uby + Nb; iy++) {
-            uf(iz, iy, ix1, 1) = +Ey0;
-            uf(iz, iy, ix1, 2) = +Ez0;
+            uf(iz, iy, ix1, 1) = Ey0;
+            uf(iz, iy, ix1, 2) = Ez0;
           }
         }
       }
@@ -269,28 +263,30 @@ public:
         int ix2 = ix1 + 1;
         for (int iz = Lbz - Nb; iz <= Ubz + Nb - 1; iz++) {
           for (int iy = Lby - Nb; iy <= Uby + Nb - 1; iy++) {
-            uf(iz, iy, ix1, 0) = Ex0;
+            uf(iz, iy, ix1, 0) = 0.0;
           }
         }
       }
       // transverse B: By, Bz
       for (int ix = 0; ix < 2 * Nb; ix++) {
         int ix1 = Lbx - ix + Nb - 1;
-        int ix2 = Lbx + Nb;
+        int ix2 = Lbx + ix + Nb + 1;
         for (int iz = Lbz - Nb; iz <= Ubz + Nb; iz++) {
           for (int iy = Lby - Nb; iy <= Uby + Nb; iy++) {
-            uf(iz, iy, ix1, 4) = By0;
-            uf(iz, iy, ix1, 5) = Bz0;
+            uf(iz, iy, ix1, 4) = uf(iz, iy, ix2, 4);
+            uf(iz, iy, ix1, 5) = uf(iz, iy, ix2, 5);
           }
         }
       }
       // normal B: Bx
       for (int ix = 0; ix < 2 * Nb; ix++) {
         int ix1 = Lbx - ix + Nb - 1;
-        int ix2 = Lbx + Nb;
+        int ix2 = ix1 + 1;
         for (int iz = Lbz - Nb + 1; iz <= Ubz + Nb; iz++) {
           for (int iy = Lby - Nb + 1; iy <= Uby + Nb; iy++) {
-            uf(iz, iy, ix1, 3) = Bx0;
+            uf(iz, iy, ix1, 3) = uf(iz, iy, ix2, 3) +
+                                 delxy * (uf(iz, iy, ix2, 4) - uf(iz, iy - 1, ix2, 4)) +
+                                 delxz * (uf(iz, iy, ix2, 5) - uf(iz - 1, iy, ix2, 5));
           }
         }
       }
@@ -300,12 +296,12 @@ public:
     // upper boundary in x
     //
     if (get_nb_rank(0, 0, +1) == MPI_PROC_NULL) {
-      const float64 Ex0 = option["boundary"]["Ex0"].get<float64>();
-      const float64 Ey0 = option["boundary"]["Ey0"].get<float64>();
-      const float64 Ez0 = option["boundary"]["Ez0"].get<float64>();
-      const float64 Bx0 = option["boundary"]["Bx0"].get<float64>();
+      const float64 u0  = option["boundary"]["u0"].get<float64>();
+      const float64 v0  = -u0 / sqrt(1 + (u0 * u0) / (cc * cc));
       const float64 By0 = option["boundary"]["By0"].get<float64>();
       const float64 Bz0 = option["boundary"]["Bz0"].get<float64>();
+      const float64 Ey0 = +v0 * Bz0 / cc;
+      const float64 Ez0 = -v0 * By0 / cc;
 
       // transverse E: Ey, Ez
       for (int ix = 0; ix < 2 * Nb; ix++) {
@@ -313,8 +309,8 @@ public:
         int ix2 = Ubx - ix - Nb;
         for (int iz = Lbz - Nb; iz <= Ubz + Nb; iz++) {
           for (int iy = Lby - Nb; iy <= Uby + Nb; iy++) {
-            uf(iz, iy, ix1, 1) = -Ey0;
-            uf(iz, iy, ix1, 2) = -Ez0;
+            uf(iz, iy, ix1, 1) = Ey0;
+            uf(iz, iy, ix1, 2) = Ez0;
           }
         }
       }
@@ -324,7 +320,7 @@ public:
         int ix2 = ix1 - 1;
         for (int iz = Lbz - Nb; iz <= Ubz + Nb - 1; iz++) {
           for (int iy = Lby - Nb; iy <= Uby + Nb - 1; iy++) {
-            uf(iz, iy, ix1, 0) = Ex0;
+            uf(iz, iy, ix1, 0) = 0.0;
           }
         }
       }
@@ -334,8 +330,8 @@ public:
         int ix2 = Ubx - ix - Nb;
         for (int iz = Lbz - Nb; iz <= Ubz + Nb; iz++) {
           for (int iy = Lby - Nb; iy <= Uby + Nb; iy++) {
-            uf(iz, iy, ix1, 4) = By0;
-            uf(iz, iy, ix1, 5) = Bz0;
+            uf(iz, iy, ix1, 4) = uf(iz, iy, ix2, 4);
+            uf(iz, iy, ix1, 5) = uf(iz, iy, ix2, 5);
           }
         }
       }
@@ -345,7 +341,9 @@ public:
         int ix2 = ix1 - 1;
         for (int iz = Lbz - Nb + 1; iz <= Ubz + Nb; iz++) {
           for (int iy = Lby - Nb + 1; iy <= Uby + Nb; iy++) {
-            uf(iz, iy, ix1, 3) = Bx0;
+            uf(iz, iy, ix1, 3) = uf(iz, iy, ix2, 3) -
+                                 delxy * (uf(iz, iy, ix1, 4) - uf(iz, iy - 1, ix1, 4)) -
+                                 delxz * (uf(iz, iy, ix1, 5) - uf(iz - 1, iy, ix1, 5));
           }
         }
       }

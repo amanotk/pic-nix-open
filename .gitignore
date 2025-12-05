@@ -1,0 +1,12 @@
+compiler.mk
+*.o
+*.d
+*.a
+*.out
+*.data
+*.mp4
+*.stdout
+*.stderr
+pic-nix
+build
+__pycache__

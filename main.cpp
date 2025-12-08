@@ -241,6 +241,7 @@ public:
     if (get_nb_rank(0, 0, -1) == MPI_PROC_NULL) {
       const float64 u0  = option["boundary"]["u0"].get<float64>();
       const float64 v0  = +u0 / sqrt(1 + (u0 * u0) / (cc * cc));
+      const float64 Bx0 = option["boundary"]["Bx0"].get<float64>();
       const float64 By0 = option["boundary"]["By0"].get<float64>();
       const float64 Bz0 = option["boundary"]["Bz0"].get<float64>();
       const float64 Ey0 = +v0 * Bz0 / cc;
@@ -270,7 +271,7 @@ public:
       // transverse B: By, Bz
       for (int ix = 0; ix < 2 * Nb; ix++) {
         int ix1 = Lbx - ix + Nb - 1;
-        int ix2 = Lbx + ix + Nb + 1;
+        int ix2 = ix1 + 1;
         for (int iz = Lbz - Nb; iz <= Ubz + Nb; iz++) {
           for (int iy = Lby - Nb; iy <= Uby + Nb; iy++) {
             uf(iz, iy, ix1, 4) = uf(iz, iy, ix2, 4);
@@ -282,11 +283,9 @@ public:
       for (int ix = 0; ix < 2 * Nb; ix++) {
         int ix1 = Lbx - ix + Nb - 1;
         int ix2 = ix1 + 1;
-        for (int iz = Lbz - Nb + 1; iz <= Ubz + Nb; iz++) {
-          for (int iy = Lby - Nb + 1; iy <= Uby + Nb; iy++) {
-            uf(iz, iy, ix1, 3) = uf(iz, iy, ix2, 3) +
-                                 delxy * (uf(iz, iy, ix2, 4) - uf(iz, iy - 1, ix2, 4)) +
-                                 delxz * (uf(iz, iy, ix2, 5) - uf(iz - 1, iy, ix2, 5));
+        for (int iz = Lbz - Nb; iz <= Ubz + Nb; iz++) {
+          for (int iy = Lby - Nb; iy <= Uby + Nb; iy++) {
+            uf(iz, iy, ix1, 3) = uf(iz, iy, ix2, 3);
           }
         }
       }
@@ -298,6 +297,7 @@ public:
     if (get_nb_rank(0, 0, +1) == MPI_PROC_NULL) {
       const float64 u0  = option["boundary"]["u0"].get<float64>();
       const float64 v0  = -u0 / sqrt(1 + (u0 * u0) / (cc * cc));
+      const float64 Bx0 = option["boundary"]["Bx0"].get<float64>();
       const float64 By0 = option["boundary"]["By0"].get<float64>();
       const float64 Bz0 = option["boundary"]["Bz0"].get<float64>();
       const float64 Ey0 = +v0 * Bz0 / cc;
@@ -327,7 +327,7 @@ public:
       // transverse B: By, Bz
       for (int ix = 0; ix < 2 * Nb - 1; ix++) {
         int ix1 = Ubx + ix - Nb + 2;
-        int ix2 = Ubx - ix - Nb;
+        int ix2 = ix1 - 1;
         for (int iz = Lbz - Nb; iz <= Ubz + Nb; iz++) {
           for (int iy = Lby - Nb; iy <= Uby + Nb; iy++) {
             uf(iz, iy, ix1, 4) = uf(iz, iy, ix2, 4);
@@ -339,11 +339,9 @@ public:
       for (int ix = 0; ix < 2 * Nb; ix++) {
         int ix1 = Ubx + ix - Nb + 1;
         int ix2 = ix1 - 1;
-        for (int iz = Lbz - Nb + 1; iz <= Ubz + Nb; iz++) {
-          for (int iy = Lby - Nb + 1; iy <= Uby + Nb; iy++) {
-            uf(iz, iy, ix1, 3) = uf(iz, iy, ix2, 3) -
-                                 delxy * (uf(iz, iy, ix1, 4) - uf(iz, iy - 1, ix1, 4)) -
-                                 delxz * (uf(iz, iy, ix1, 5) - uf(iz - 1, iy, ix1, 5));
+        for (int iz = Lbz - Nb; iz <= Ubz + Nb; iz++) {
+          for (int iy = Lby - Nb; iy <= Uby + Nb; iy++) {
+            uf(iz, iy, ix1, 3) = uf(iz, iy, ix2, 3);
           }
         }
       }
